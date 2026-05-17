@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Daily Activity Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- ── HEADER ── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">DAT</span>
+        <span class="brand-sub">Daily Activity Tracker</span>
+      </div>
+      <div class="header-meta">
+        <span id="live-date" class="live-date"></span>
+        <span class="live-badge">● LIVE</span>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" onclick="toggleTheme()">🌙</button>
+        <a href="/logout" class="btn-logout" title="Logout">⎋ Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- ── FORM CARD ── -->
+    <section class="card form-card">
+      <div class="card-header">
+        <h2 class="section-title">Log Today's Work</h2>
+        <p class="section-sub">Fill in your end-of-day activity report</p>
+      </div>
+
+      <div class="form-grid" id="entry-form">
+
+        <!-- Name dropdown -->
+        <div class="field-group">
+          <label for="f-name">
+            Name
+            <span class="hint">Select your name from the list</span>
+          </label>
+          <div class="select-wrapper">
+            <select id="f-name">
+              <option value="" disabled selected>— Select team member —</option>
+              {% for member in team_members %}
+              <option value="{{ member }}">{{ member }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Module -->
+        <div class="field-group">
+          <label for="f-module">
+            Module
+            <span class="hint">Feature / module you worked on today</span>
+          </label>
+          <input id="f-module" type="text"/>
+        </div>
+
+        <!-- PR Links — multi, comma separated -->
+        <div class="field-group full-width">
+          <label for="f-pr">
+            PR Link(s)
+            <span class="hint">Paste one or more PR URLs separated by commas</span>
+          </label>
+          <textarea id="f-pr" rows="2" ></textarea>
+        </div>
+
+        <!-- Jira / NSD Ticket Links -->
+        <div class="field-group full-width">
+          <label for="f-jira">
+            Jira Ticket(s)
+            <span class="hint">Paste one or more Jira ticket URLs separated by commas</span>
+          </label>
+          <textarea id="f-jira" rows="2" ></textarea>
+        </div>
+
+        <!-- Fixes -->
+        <div class="field-group">
+          <label for="f-fixes">
+            No. of Fixes / NSDs
+          </label>
+          <input id="f-fixes" type="number" min="0" />
+        </div>
+
+        <!-- Date -->
+        <div class="field-group date-group">
+          <label>
+            Date
+            <span class="hint"></span>
+          </label>
+          <div class="date-display" id="form-date-display"></div>
+        </div>
+
+        <!-- Submit -->
+        <div class="form-actions full-width">
+          <button class="btn-submit" id="submit-btn" onclick="submitEntry()">
+            <span class="btn-label">Submit Entry</span>
+            <span class="btn-icon">→</span>
+          </button>
+          <p class="form-notice" id="form-msg"></p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── TODAY TABLE ── -->
+    <section class="card table-card">
+      <div class="card-header table-header-row">
+        <div>
+          <h2 class="section-title">Today's Entries</h2>
+          <p class="section-sub" id="entry-count" data-count="0">0 entries logged</p>
+        </div>
+        <div class="table-controls">
+          <!-- Search -->
+          <div class="search-box">
+            <span class="search-icon">⌕</span>
+            <input id="search-input" type="text" placeholder="Search name or module…" oninput="filterTable()"/>
+          </div>
+          <button class="btn-ghost" onclick="loadToday()">↺ Refresh</button>
+          <button class="btn-ghost export-btn" onclick="exportCSV('today')" title="Download today's entries as CSV">⬇ Export Today</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table" id="today-table">
+          <thead>
+            <tr>
+              <th>S.No.</th>
+              <th>Name</th>
+              <th>Module Worked</th>
+              <th>PR Links</th>
+              <th>Jira Tickets</th>
+              <th>No. of Fixes</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="today-tbody">
+            <tr class="empty-row" id="empty-row">
+              <td colspan="8">
+                <div class="empty-state">
+                  <span class="empty-icon">📋</span>
+                  <p>No entries yet today. Submit your first log above!</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── HISTORY ── -->
+    <section class="card history-card">
+      <div class="card-header table-header-row">
+        <div>
+          <h2 class="section-title">Activity History</h2>
+          <p class="section-sub">All past entries stored by date</p>
+        </div>
+        <div class="table-controls">
+          <div class="search-box">
+            <span class="search-icon">⌕</span>
+            <input id="hist-search-input" type="text" placeholder="Search history…" oninput="filterHistory()"/>
+          </div>
+          <button class="btn-ghost export-btn" onclick="exportCSV('all')" title="Download entire DB history as CSV">⬇ Download History</button>
+          <button class="btn-ghost" id="hist-toggle-btn" onclick="toggleHistory()">View History ↓</button>
+        </div>
+      </div>
+      <div id="history-panel" class="history-panel hidden"></div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Daily Activity Tracker &mdash; Ford Internal · Data resets display daily, stored forever</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
